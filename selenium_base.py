@@ -10,9 +10,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
 import time
 
-# Database tools
-from database_tools import DatabaseTools
-
 
 class Browsers:
     CHROME = 'chrome'
