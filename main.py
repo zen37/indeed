@@ -1,46 +1,64 @@
-import argparse
-from indeed_scraper import IndeedScraper, main  # Adjust this import based on your actual module structure.
+import sys
+import json
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.edge.options import Options as EdgeOptions
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Scrape job listings from Indeed.")
-    parser.add_argument('--keywords', type=str, default='Data Analyst', help='Keywords to search for.')
-    parser.add_argument('--location', type=str, default='Remote', help='Location to search in.')
-    parser.add_argument('--country', type=str, choices=['USA', 'CANADA'], default='usa', help='Country to search in.')
-    parser.add_argument('--sort_by', type=str, choices=['date', 'relevance'], default='date', help='Sort by date or relevance.')
-    parser.add_argument('--max_pages', type=int, default=5, help='Maximum number of pages to scrape.')
-    parser.add_argument('--dont_search', action='store_true', help='Disable searching for new jobs.')
-    parser.add_argument('--dont_update_job_descriptions', action='store_true', help='Disable updating job descriptions.')
-    return parser.parse_args()
+# Define browser choices
+class Browsers:
+    CHROME = 'chrome'
+    EDGE = 'edge'
+    FIREFOX = 'firefox'
+    SAFARI = 'safari'
 
-if __name__ == '__main__':
-    args = parse_args()
+# Function to read the browser configuration from config.json
+def load_config():
+    with open('config.json', 'r') as file:
+        config = json.load(file)
+    return config.get('browser', Browsers.CHROME)  # Default to 'chrome' if not found
 
-    # Set the country and sort_by using the enumeration in IndeedScraper, adjusting as needed for your implementation.
-    country_enum = getattr(IndeedScraper.Country, args.country)
-    sort_by_enum = getattr(IndeedScraper.SortBy, args.sort_by.upper())
+# Read the browser choice from the configuration file
+browser = load_config()  # Example: Set to the desired browser from config.json
 
-    # Construct the search parameters Object
-    search_params = {
-        'keywords': args.keywords,
-        'location': args.location,
-        'country': country_enum,
-        'sort_by': sort_by_enum
-    }
+# Conditional import and installation of webdriver-manager only if the browser isn't Safari
+if browser not in [Browsers.SAFARI]:  # Only import webdriver-manager if the browser isn't Safari
+    try:
+        from webdriver_manager.microsoft import EdgeChromiumDriverManager
+        from webdriver_manager.chrome import ChromeDriverManager
+        from webdriver_manager.firefox import GeckoDriverManager
+    except ImportError:
+        print("Required libraries not found, installing...")
+        from subprocess import call
+        call([sys.executable, "-m", "pip", "install", "webdriver-manager"])
+        from webdriver_manager.microsoft import EdgeChromiumDriverManager
+        from webdriver_manager.chrome import ChromeDriverManager
+        from webdriver_manager.firefox import GeckoDriverManager
+else:
+    print("Safari browser selected, no need for webdriver-manager.")
 
-    # Run the main function with the parsed command line arguments.
-    main(
-        max_pages=args.max_pages, 
-        dont_search=args.dont_search, 
-        dont_update_job_descriptions=args.dont_update_job_descriptions,
-        **search_params
-    )
+class SeleniumScraper:
     
-    # Handle temporary bug fix with the second call
-    if args.dont_update_job_descriptions:  # Check if updating descriptions is needed
-        main(
-            max_pages=0, 
-            dont_search=args.dont_search, 
-            dont_update_job_descriptions=False, 
-            **search_params
-        )
-# python main.py --keywords "Engineering" --location "Toronto" --country CANADA --sort_by relevance --max_pages 2 --dont_search --dont_update_job_descriptions
+    def __init__(self, browser: str = Browsers.CHROME):
+        self.browser = browser
+        self.driver = None
+
+    def open_browser(self):
+        if self.browser == Browsers.SAFARI:
+            print("Opening Safari browser...")
+            self.driver = webdriver.Safari()
+        elif self.browser == Browsers.CHROME:
+            print("Opening Chrome browser...")
+            self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=ChromeOptions())
+        elif self.browser == Browsers.EDGE:
+            print("Opening Edge browser...")
+            self.driver = webdriver.Edge(EdgeChromiumDriverManager().install(), options=EdgeOptions())
+        elif self.browser == Browsers.FIREFOX:
+            print("Opening Firefox browser...")
+            self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=FirefoxOptions())
+
+        self.driver.get("https://www.example.com")
+
+# Example of how to run
+scraper = SeleniumScraper(browser=browser)
+scraper.open_browser()
